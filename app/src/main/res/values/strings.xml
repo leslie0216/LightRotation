@@ -17,4 +17,6 @@
     <string name="inaccurate">Inaccurate</string>
     <string name="debug">Debug</string>
     <string name="normal">Normal</string>
+    <string name="lock">Lock</string>
+    <string name="unlock">Unlock</string>
 </resources>

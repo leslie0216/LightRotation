@@ -55,6 +55,9 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
     private Button m_startBtn;
     private boolean m_isDebugMode;
 
+    private Button m_lockBtn;
+    private boolean m_isLocked = false;
+
     /**
      * sensors begin
      */
@@ -73,11 +76,13 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
     Runnable timerRunnable = new Runnable() {
         @Override
         public void run() {
-            if (m_bluetoothData.isMessageListEmpty()) {
-                m_drawView.cookLocationMsg();
+            if (!m_isLocked) {
+                if (m_bluetoothData.isMessageListEmpty()) {
+                    m_drawView.cookLocationMsg();
+                }
+                m_bluetoothData.sendMessage();
             }
             m_drawView.invalidate();
-            m_bluetoothData.sendMessage();
             timerHandler.postDelayed(this, 200);
         }
     };
@@ -148,6 +153,8 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
             }
         });
         */
+
+        // Start Button
         m_startBtn = new Button(this);
         m_startBtn.setText(getResources().getString(R.string.debug));
 
@@ -174,13 +181,48 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         layoutParams.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
         relativeLayout.addView(m_startBtn, layoutParams);
 
+        // Lock Button
+        m_lockBtn = new Button(this);
+        m_lockBtn.setText(getResources().getString(R.string.lock));
+
+        m_lockBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (m_drawView != null) {
+                    if (m_isLocked) {
+                        m_isLocked = false;
+                        m_lockBtn.setText(getResources().getString(R.string.lock));
+                        m_drawView.setLock(m_isLocked);
+                    } else {
+                        m_isLocked = true;
+                        m_lockBtn.setText(getResources().getString(R.string.unlock));
+                        m_drawView.setLock(m_isLocked);
+                    }
+                }
+            }
+        });
+
+        RelativeLayout relativeLayout2 = new RelativeLayout(this);
+
+        RelativeLayout.LayoutParams layoutParams2 = new RelativeLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        layoutParams2.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+        relativeLayout2.addView(m_lockBtn, layoutParams2);
+
+        // Draw View
         m_drawView = new MainView(this);
         m_drawView.setBackgroundColor(Color.WHITE);
 
-        DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
-        this.addContentView(m_drawView, new LinearLayout.LayoutParams(displayMetrics.widthPixels, (displayMetrics.heightPixels)));
+        m_isLocked = false;
+        m_drawView.setLock(m_isLocked);
 
+        // add views
+        DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
+        // add draw view
+        this.addContentView(m_drawView, new LinearLayout.LayoutParams(displayMetrics.widthPixels, (displayMetrics.heightPixels)));
+        // add startButton
         this.addContentView(relativeLayout, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        // add lockButton
+        this.addContentView(relativeLayout2, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         m_bluetoothData = new BluetoothClientData(this);
         m_bluetoothData.init();
@@ -300,6 +342,10 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
 
     public boolean getIsDebug() {
         return m_isDebugMode;
+    }
+
+    public boolean isLocked() {
+        return m_isLocked;
     }
 
     public String getUserName() {

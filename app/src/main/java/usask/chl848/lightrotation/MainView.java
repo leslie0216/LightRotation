@@ -88,6 +88,11 @@ public class MainView extends View {
         }
     };
 
+    private boolean m_isLocked = false;
+    private float m_lockedCompassAngle;
+    private float m_lockedLightAngle;
+    private float m_lockedBaysianAngle;
+
     //private MainLogger m_logger = null;
     private boolean m_logEnabled;
     private int m_logCount;
@@ -115,7 +120,7 @@ public class MainView extends View {
         m_color = ((MainActivity)(context)).getUserColor();
 
         m_localCoordinateCenterX = displayMetrics.widthPixels * 0.5f;
-        m_localCoordinateCenterY = displayMetrics.heightPixels * 0.5f;
+        m_localCoordinateCenterY = displayMetrics.heightPixels * 0.45f;
         m_localCoordinateRadius = displayMetrics.widthPixels * 0.5f;
 
         m_remotePhoneRadius = displayMetrics.widthPixels * 0.05f;
@@ -127,6 +132,7 @@ public class MainView extends View {
         }
 
         setShowRemoteNames(false);
+        addBall();
 /*
         m_logger = new MainLogger(getContext(), m_username+"_"+getResources().getString(R.string.app_name)+"_angle");
         m_logger.writeHeaders("userName" + ","  + "angle" + "," + "timestamp");
@@ -152,6 +158,15 @@ public class MainView extends View {
     public boolean isLogEnabled()
     {
         return m_logEnabled;
+    }
+
+    public void setLock(boolean isLocked) {
+        if (isLocked) {
+            m_lockedCompassAngle = m_compassData.getRotationVector().m_z;
+            m_lockedLightAngle = m_lightData.getAngle();
+            m_lockedBaysianAngle = getAngleInBenchmark();
+        }
+        m_isLocked = isLocked;
     }
 
     private void initBallBornPoints(DisplayMetrics displayMetrics) {
@@ -224,14 +239,38 @@ public class MainView extends View {
 
     /***
      * Calculate remote angle in local coordinate
+     * @param remoteAngleInBenchmark  remote angle in benchmark's coordinate
+     * @param isRemoteBenchmark is remote device benchmark
+     * @return remote device's angle in local coordinate
+     */
+    private float calculateRemoteAngle_Benchmark(float remoteAngleInBenchmark, boolean isRemoteBenchmark) {
+        float angle;
+        if (m_isLocked) {
+            angle = calculateRemoteAngle_Benchmark_core(m_lockedBaysianAngle, remoteAngleInBenchmark, isRemoteBenchmark);
+            float currentCompassAngle = m_compassData.getRotationVector().m_z;
+            float delta = m_lockedCompassAngle - currentCompassAngle;
+            if (delta <= 0.0) {
+                angle += Math.abs(delta);
+            } else {
+                angle -= Math.abs(delta);
+            }
+
+        } else {
+            angle = calculateRemoteAngle_Benchmark_core(getAngleInBenchmark(), remoteAngleInBenchmark, isRemoteBenchmark);
+        }
+
+        return angle;
+    }
+
+    /***
+     * Calculate remote angle in local coordinate when not locked
      * @param localAngleInBenchmark local angle in benchmark's coordinate
      * @param remoteAngleInBenchmark remote angle in benchmark's coordinate
      * @param remoteAngleInBenchmark is remote device benchmark
-     * @param isLocalBenchmark is local device benchmark
      * @return remote device's angle in local coordinate (can be used to shows on local screen)
      */
-    private float calculateRemoteAngle_Benchmark(float localAngleInBenchmark, float remoteAngleInBenchmark, boolean isLocalBenchmark, boolean isRemoteBenchmark) {
-        if (isLocalBenchmark) {
+    private float calculateRemoteAngle_Benchmark_core(float localAngleInBenchmark, float remoteAngleInBenchmark, boolean isRemoteBenchmark) {
+        if (m_isBenchmark) {
             return remoteAngleInBenchmark;
         }
 
@@ -251,6 +290,7 @@ public class MainView extends View {
      * Use Bayesian to calculate angle combine Compass with Light
      * @return angleInBenchmark with the max probability
      */
+    private static final int  SIZE = 180;
     private float getAngleInBenchmark() {
         if (m_isBenchmark) {
             return 0.0f;
@@ -260,7 +300,7 @@ public class MainView extends View {
             float lightRead = m_lightData.getAngle();
             float lightReadInBenchmark = calculateAngleToBenchmark(m_lightBenchmark, lightRead);
 
-            double[] jointProbs = new double[360];
+            double[] jointProbs = new double[SIZE];
             double marginal = 0.0;
 
             MainActivity ma = (MainActivity)getContext();
@@ -268,31 +308,31 @@ public class MainView extends View {
 
             switch (mode) {
                 case COMPASS:
-                    for (int i = 0; i < 360; ++i) {
+                    for (int i = 0; i < SIZE; ++i) {
                         jointProbs[i] = Utility.getCompassErrorProbablility((int) Math.abs(compassReadInBenchmark - i)) * m_bayesianPrior[i];
                         marginal += jointProbs[i];
                     }
                     break;
                 case LIGHT:
-                    for (int i = 0; i < 360; ++i) {
+                    for (int i = 0; i < SIZE; ++i) {
                         jointProbs[i] = Utility.getLightErrorProbablility((int) Math.abs(lightReadInBenchmark - i)) * m_bayesianPrior[i];
                         marginal += jointProbs[i];
                     }
                     break;
                 case COMPASSLIGHT:
-                    for (int i = 0; i < 360; ++i) {
+                    for (int i = 0; i < SIZE; ++i) {
                         jointProbs[i] = Utility.getCompassErrorProbablility((int) Math.abs(compassReadInBenchmark - i)) * Utility.getLightErrorProbablility((int) Math.abs(lightReadInBenchmark - i)) * m_bayesianPrior[i];
                         marginal += jointProbs[i];
                     }
                     break;
                 case AUTO:
                     if (m_lightData.isAccurate()) {
-                        for (int i = 0; i < 360; ++i) {
+                        for (int i = 0; i < SIZE; ++i) {
                             jointProbs[i] = Utility.getCompassErrorProbablility((int) Math.abs(compassReadInBenchmark - i)) * Utility.getLightErrorProbablility((int) Math.abs(lightReadInBenchmark - i)) * m_bayesianPrior[i];
                             marginal += jointProbs[i];
                         }
                     } else {
-                        for (int i = 0; i < 360; ++i) {
+                        for (int i = 0; i < SIZE; ++i) {
                             jointProbs[i] = Utility.getCompassErrorProbablility((int) Math.abs(compassReadInBenchmark - i)) * m_bayesianPrior[i];
                             marginal += jointProbs[i];
                         }
@@ -300,10 +340,10 @@ public class MainView extends View {
                     break;
             }
 
-            double[] probs = new double[360];
+            double[] probs = new double[SIZE];
             int maxAngle = 0;
             double maxPro = 0.0;
-            for (int i = 0; i < 360; ++i) {
+            for (int i = 0; i < SIZE; ++i) {
                 probs[i] = jointProbs[i]/marginal;
                 if (probs[i] > maxPro) {
                     maxPro = probs[i];
@@ -312,7 +352,15 @@ public class MainView extends View {
             }
 
             // update prior with last record
-            System.arraycopy(probs, 0, m_bayesianPrior, 0, jointProbs.length);
+            //System.arraycopy(probs, 0, m_bayesianPrior, 0, jointProbs.length);
+
+            Log.d(MainActivity.TAG, "*******************************************************");
+            Log.d(MainActivity.TAG, "getAngleInBenchmark compassReadInBenchmark = " + String.valueOf(compassReadInBenchmark));
+            //Log.d(MainActivity.TAG, "getAngleInBenchmark lightReadInBenchmark = " + String.valueOf(lightReadInBenchmark));
+            Log.d(MainActivity.TAG, "getAngleInBenchmark marginal = " + String.valueOf(marginal));
+            Log.d(MainActivity.TAG, "getAngleInBenchmark angle = " + String.valueOf(maxAngle));
+            Log.d(MainActivity.TAG, "*******************************************************");
+
             return maxAngle;
         }
     }
@@ -473,13 +521,13 @@ public class MainView extends View {
 
         // draw coordinate
         float left = 0.0f;
-        float top = displayMetrics.heightPixels * 0.5f - m_localCoordinateRadius;
+        float top = displayMetrics.heightPixels * 0.45f - m_localCoordinateRadius;
         float right = displayMetrics.widthPixels;
-        float bottom = displayMetrics.heightPixels * 0.5f + m_localCoordinateRadius;
+        float bottom = displayMetrics.heightPixels * 0.45f + m_localCoordinateRadius;
         RectF disRect = new RectF(left, top, right, bottom);
 
         m_paint.setStrokeWidth(m_boundaryStrokeWidth);
-        canvas.drawArc(disRect, 160.0f, 220.0f, false, m_paint);
+        canvas.drawArc(disRect, 0.0f, 360.0f, false, m_paint);
 
         MainActivity mainActivity = (MainActivity)getContext();
         if ((mainActivity != null) && mainActivity.m_bluetoothData.isConnected()) {
@@ -492,7 +540,7 @@ public class MainView extends View {
             int size = m_remotePhones.size();
             for (int i=0; i<size; ++i) {
                 RemotePhoneInfo info = m_remotePhones.get(i);
-                double angle_remote = calculateRemoteAngle_Benchmark(getAngleInBenchmark(), info.m_angleInBenchmark, m_isBenchmark, info.m_isBenchmark);
+                double angle_remote = calculateRemoteAngle_Benchmark(info.m_angleInBenchmark, info.m_isBenchmark);
                 float pointX = m_localCoordinateCenterX + m_localCoordinateRadius * (float)Math.cos(Math.toRadians(angle_remote));
                 float pointY = m_localCoordinateCenterY - m_localCoordinateRadius * (float)Math.sin(Math.toRadians(angle_remote));
                 m_paint.setColor(info.m_color);
@@ -584,7 +632,7 @@ public class MainView extends View {
                     boolean show = false;
 
                     for (RemotePhoneInfo remotePhone : m_remotePhones) {
-                        double angle_remote = calculateRemoteAngle_Benchmark(getAngleInBenchmark(), remotePhone.m_angleInBenchmark, m_isBenchmark, remotePhone.m_isBenchmark);
+                        double angle_remote = calculateRemoteAngle_Benchmark(remotePhone.m_angleInBenchmark, remotePhone.m_isBenchmark);
                         float pointX = m_localCoordinateCenterX + m_localCoordinateRadius * (float) Math.cos(Math.toRadians(angle_remote));
                         float pointY = m_localCoordinateCenterY - m_localCoordinateRadius * (float) Math.sin(Math.toRadians(angle_remote));
 
@@ -607,7 +655,7 @@ public class MainView extends View {
                     boolean show = false;
 
                     for (RemotePhoneInfo remotePhone : m_remotePhones) {
-                        double angle_remote = calculateRemoteAngle_Benchmark(getAngleInBenchmark(), remotePhone.m_angleInBenchmark,  m_isBenchmark, remotePhone.m_isBenchmark);
+                        double angle_remote = calculateRemoteAngle_Benchmark(remotePhone.m_angleInBenchmark,remotePhone.m_isBenchmark);
                         float pointX = m_localCoordinateCenterX + m_localCoordinateRadius * (float) Math.cos(Math.toRadians(angle_remote));
                         float pointY = m_localCoordinateCenterY - m_localCoordinateRadius * (float) Math.sin(Math.toRadians(angle_remote));
 
@@ -732,7 +780,7 @@ public class MainView extends View {
         float rate = 10000.0f;
         if (!m_remotePhones.isEmpty()) {
             for (RemotePhoneInfo remotePhoneInfo : m_remotePhones) {
-                double angle_remote = calculateRemoteAngle_Benchmark(getAngleInBenchmark(), remotePhoneInfo.m_angleInBenchmark,  m_isBenchmark, remotePhoneInfo.m_isBenchmark);
+                double angle_remote = calculateRemoteAngle_Benchmark(remotePhoneInfo.m_angleInBenchmark, remotePhoneInfo.m_isBenchmark);
                 float pointX = m_localCoordinateCenterX + m_localCoordinateRadius * (float)Math.cos(Math.toRadians(angle_remote));
                 float pointY = m_localCoordinateCenterY - m_localCoordinateRadius * (float)Math.sin(Math.toRadians(angle_remote));
 
@@ -795,9 +843,15 @@ public class MainView extends View {
     public void sendBall(Ball ball, String receiverName) {
         JSONObject jsonObject = new JSONObject();
         try {
-            jsonObject.put("compassangle", m_compassData.getRotationVector().m_z);
-            jsonObject.put("lightangle", m_lightData.getAngle());
-            jsonObject.put("angleinbenchmark", getAngleInBenchmark());
+            if (m_isLocked) {
+                jsonObject.put("compassangle", m_lockedCompassAngle);
+                jsonObject.put("lightangle",m_lockedLightAngle);
+                jsonObject.put("angleinbenchmark", m_lockedBaysianAngle);
+            } else {
+                jsonObject.put("compassangle", m_compassData.getRotationVector().m_z);
+                jsonObject.put("lightangle", m_lightData.getAngle());
+                jsonObject.put("angleinbenchmark", getAngleInBenchmark());
+            }
             jsonObject.put("color", m_color);
             jsonObject.put("name", m_userName);
             jsonObject.put("isSendingBall", true);
@@ -817,9 +871,15 @@ public class MainView extends View {
     public void cookLocationMsg(){
         JSONObject msg = new JSONObject();
         try {
-            msg.put("compassangle", m_compassData.getRotationVector().m_z);
-            msg.put("lightangle", m_lightData.getAngle());
-            msg.put("angleinbenchmark", getAngleInBenchmark());
+            if (m_isLocked) {
+                msg.put("compassangle", m_lockedCompassAngle);
+                msg.put("lightangle",m_lockedLightAngle);
+                msg.put("angleinbenchmark", m_lockedBaysianAngle);
+            } else {
+                msg.put("compassangle", m_compassData.getRotationVector().m_z);
+                msg.put("lightangle", m_lightData.getAngle());
+                msg.put("angleinbenchmark", getAngleInBenchmark());
+            }
             msg.put("name", m_userName);
             msg.put("color", m_color);
             msg.put("isSendingBall", false);

@@ -207,7 +207,7 @@ public class BluetoothClientData {
                 float senderAngleInBenchmark = (float) jsonObject.getDouble("angleinbenchmark");
                 boolean isSenderBenchmark = jsonObject.getBoolean("isBenchmark");
 
-                if (m_activity.m_drawView != null) {
+                if (m_activity.m_drawView != null && !m_activity.isLocked()) {
                     m_activity.m_drawView.updateRemotePhone(senderName, senderColor, senderAngleInBenchmark, senderCompassAngle, senderLightAngle,isSenderBenchmark);
                 }
 
