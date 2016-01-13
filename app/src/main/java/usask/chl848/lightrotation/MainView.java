@@ -99,7 +99,7 @@ public class MainView extends View {
     private float m_lockedLightAngle;
     private float m_lockedBaysianAngle;
 
-    private class FlickInfo {
+    public class FlickInfo {
         float startX;
         float startY;
         float velocityX;
@@ -133,14 +133,12 @@ public class MainView extends View {
     private int m_maxTrails;
     private int m_currentBlock;
     private int m_currentTrail;
-    private static final int m_experimentPhoneNumber = 3;
+    private static final int m_experimentPhoneNumber = 1;
     private MainLogger m_logger;
     private MainLogger m_angleLogger;
     private MainLogger m_bayesianLogger;
     private boolean m_isStarted;
     private boolean m_isExperimentInitialised;
-    // calibration
-    private boolean m_isAccurate = true;
     /**
      * experiment end
      */
@@ -439,6 +437,8 @@ public class MainView extends View {
     }
 
     public void setRotationData(float[] values, boolean isAccurate) {
+        m_compassData.setRotationData(values);
+        m_compassData.setIsAccurate(isAccurate);
         /**
          * experiment begin
          */
@@ -448,11 +448,13 @@ public class MainView extends View {
                 m_angleLogger.write(m_id + "," + m_userName + "," + ((MainActivity) getContext()).getLockMode().toString() + "," + ((MainActivity) getContext()).getPassMode().toString() + "," + m_currentBlock + "," + m_currentTrail + "," + values[0] + "," + values[1] + "," + values[2] + "," + (isAccurate?1:0) + "," + System.currentTimeMillis(), false);
             }
         }
+
+        if (m_isLocked) {
+            invalidate();
+        }
         /**
          * experiment end
          */
-        m_compassData.setRotationData(values);
-        m_compassData.setIsAccurate(isAccurate);
     }
 
     @Override
@@ -597,7 +599,7 @@ public class MainView extends View {
         m_paint.setStrokeWidth(m_textStrokeWidth);
         m_paint.setStyle(Paint.Style.FILL_AND_STROKE);
         DisplayMetrics displayMetrics = getContext().getResources().getDisplayMetrics();
-        canvas.drawText("("+m_id+")"+m_userName, displayMetrics.widthPixels * 0.32f, displayMetrics.heightPixels * 0.82f, m_paint);
+        canvas.drawText("(" + m_id + ")" + m_userName, displayMetrics.widthPixels * 0.32f, displayMetrics.heightPixels * 0.8f, m_paint);
     }
 
     private void showDirection(Canvas canvas) {
@@ -923,16 +925,19 @@ public class MainView extends View {
             m_isFlicking = true;
             m_flickInfo.startX = e.getX();
             m_flickInfo.startY = e.getY();
-            m_flickInfo.velocityX = velocityX/500;
-            m_flickInfo.velocityY = velocityY/500;
+            m_flickInfo.velocityX = velocityX/1000;
+            m_flickInfo.velocityY = velocityY/1000;
             m_flickInfo.startTime = System.currentTimeMillis();
+            /*
             while (m_isFlicking) {
                 doFlick();
             }
 
             if (((MainActivity) getContext()).getLockMode() == MainActivity.LockMode.DYNAMIC) {
                 setLock(false);
-            }
+            }*/
+            BallFlickThread thread = new BallFlickThread(getContext(), m_flickInfo);
+            thread.start();
         }
         return true;
     }
@@ -946,6 +951,11 @@ public class MainView extends View {
         //Log.d(MainActivity.TAG, "doFlick() timeElapse = " + timeElapse + ", xDist = " + xDist + ", yDist = " + yDist);
         newX = m_flickInfo.startX + xDist;
         newY = m_flickInfo.startY + yDist;
+        moveBall(newX, newY);
+        this.invalidate();
+    }
+
+    public void moveBall(float newX, float newY) {
         if (m_touchedBallId > -1) {
             Ball ball = m_balls.get(m_touchedBallId);
             if (ball.m_isTouched) {
@@ -969,7 +979,6 @@ public class MainView extends View {
                         ((MainActivity) getContext()).showToast("send ball to : " + name);
                         //sendBall(ball, name);
                         removeBall(ball.m_id);
-                        this.invalidate();
                         endTrail();
                     } else {
                         m_numberOfErrors++;
@@ -979,12 +988,15 @@ public class MainView extends View {
                 }else if (!isOverlap && !isBoundary(newX, newY)) {
                     ball.m_ballX = newX;
                     ball.m_ballY = newY;
-                    this.invalidate();
                 } else {
                     m_isFlicking = false;
                 }
             }
         }
+    }
+
+    public int getTouchedBallId() {
+        return m_touchedBallId;
     }
 
     private boolean isBoundary(float x, float y) {
@@ -1303,14 +1315,20 @@ public class MainView extends View {
             closeLogger();
         }
 
-        new AlertDialog.Builder(getContext()).setTitle("Warning").setMessage("You have completed block " + m_currentBlock + ", please wait for other participants.").setNeutralButton("OK", new DialogInterface.OnClickListener() {
+        ((MainActivity) getContext()).runOnUiThread(new Runnable() {
             @Override
-            public void onClick(DialogInterface dialog, int which) {
-            }
-        }).show();
+            public void run() {
+                new AlertDialog.Builder(getContext()).setTitle("Warning").setMessage("You have completed block " + m_currentBlock + ", please wait for other participants.").setNeutralButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                    }
+                }).show();
 
-        ((MainActivity) getContext()).setContinueButtonEnabled(true);
-        ((MainActivity)getContext()).setStartButtonEnabled(false);
+                ((MainActivity) getContext()).setContinueButtonEnabled(true);
+                ((MainActivity) getContext()).setStartButtonEnabled(false);
+            }
+        });
+
         m_currentTrail = 0;
     }
 

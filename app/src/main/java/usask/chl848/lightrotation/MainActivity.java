@@ -647,9 +647,15 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         return rt;
     }
 
-    public void showToast(String message)
+    public void showToast(final String message)
     {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+        final Activity ac = this;
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(ac, message, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     public Mode getCurrentMode() {

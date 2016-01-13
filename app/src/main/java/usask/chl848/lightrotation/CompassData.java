@@ -12,7 +12,7 @@ public class CompassData {
         float m_y;
         float m_z;
     }
-    private Queue<RotationVector> m_rotationVectorQueue = new LinkedList<>();
+    private final Queue<RotationVector> m_rotationVectorQueue = new LinkedList<>();
     private static final int m_filterSize = 15;
     private boolean m_isAccurate = true;
 
@@ -31,12 +31,14 @@ public class CompassData {
             rotationVector.m_z += 90;
         }*/
 
-        int size = m_rotationVectorQueue.size();
-        if (size >= m_filterSize) {
-            m_rotationVectorQueue.poll();
-        }
+        synchronized (m_rotationVectorQueue) {
+            int size = m_rotationVectorQueue.size();
+            if (size >= m_filterSize) {
+                m_rotationVectorQueue.poll();
+            }
 
-        m_rotationVectorQueue.offer(rotationVector);
+            m_rotationVectorQueue.offer(rotationVector);
+        }
         //this.invalidate();
     }
 
@@ -53,16 +55,17 @@ public class CompassData {
         RotationVector rotationVector = new RotationVector();
         float x, y, z;
         x = y = z = 0.0f;
-        int size = m_rotationVectorQueue.size();
-        for (RotationVector rv : m_rotationVectorQueue) {
-            x += rv.m_x;
-            y += rv.m_y;
-            z += rv.m_z;
+        synchronized (m_rotationVectorQueue) {
+            int size = m_rotationVectorQueue.size();
+            for (RotationVector rv : m_rotationVectorQueue) {
+                x += rv.m_x;
+                y += rv.m_y;
+                z += rv.m_z;
+            }
+            rotationVector.m_x = x / size;
+            rotationVector.m_y = y / size;
+            rotationVector.m_z = z / size;
         }
-        rotationVector.m_x = x/size;
-        rotationVector.m_y = y/size;
-        rotationVector.m_z = z/size;
-
         return rotationVector;
     }
 }
