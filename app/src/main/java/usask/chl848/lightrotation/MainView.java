@@ -10,6 +10,7 @@ import android.graphics.RectF;
 import android.os.Handler;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 
@@ -93,6 +94,20 @@ public class MainView extends View {
     private float m_lockedLightAngle;
     private float m_lockedBaysianAngle;
 
+    private class FlickInfo {
+        float startX;
+        float startY;
+        float velocityX;
+        float velocityY;
+        long startTime;
+    }
+
+    private GestureDetector m_gestureDectector;
+    private GestureDetectorData m_gestureDectectorData;
+    private boolean m_isFlickEnabled = true;
+    private boolean m_isFlicking = false;
+    private FlickInfo m_flickInfo = new FlickInfo();
+
     //private MainLogger m_logger = null;
     private boolean m_logEnabled;
     private int m_logCount;
@@ -133,6 +148,9 @@ public class MainView extends View {
 
         setShowRemoteNames(false);
         addBall();
+
+        m_gestureDectectorData = new GestureDetectorData(this);
+        m_gestureDectector = new GestureDetector(context, m_gestureDectectorData);
 /*
         m_logger = new MainLogger(getContext(), m_username+"_"+getResources().getString(R.string.app_name)+"_angle");
         m_logger.writeHeaders("userName" + ","  + "angle" + "," + "timestamp");
@@ -208,6 +226,18 @@ public class MainView extends View {
         }
     }
 
+    public void enableFlick() {
+        m_isFlickEnabled = true;
+    }
+
+    public boolean isFlickEnabled() {
+        return m_isFlickEnabled;
+    }
+
+    public boolean isFlicking() {
+        return m_isFlicking;
+    }
+
     /***
      * Calculate angle shows in benchmark's coordinate
      * @param benchmark benchmark device's angle
@@ -266,7 +296,6 @@ public class MainView extends View {
      * Calculate remote angle in local coordinate when not locked
      * @param localAngleInBenchmark local angle in benchmark's coordinate
      * @param remoteAngleInBenchmark remote angle in benchmark's coordinate
-     * @param remoteAngleInBenchmark is remote device benchmark
      * @return remote device's angle in local coordinate (can be used to shows on local screen)
      */
     private float calculateRemoteAngle_Benchmark_core(float localAngleInBenchmark, float remoteAngleInBenchmark, boolean isRemoteBenchmark) {
@@ -286,11 +315,11 @@ public class MainView extends View {
         }
     }
 
+    private static final int  SIZE = 180;
     /***
      * Use Bayesian to calculate angle combine Compass with Light
      * @return angleInBenchmark with the max probability
      */
-    private static final int  SIZE = 180;
     private float getAngleInBenchmark() {
         if (m_isBenchmark) {
             return 0.0f;
@@ -353,14 +382,6 @@ public class MainView extends View {
 
             // update prior with last record
             //System.arraycopy(probs, 0, m_bayesianPrior, 0, jointProbs.length);
-
-            Log.d(MainActivity.TAG, "*******************************************************");
-            Log.d(MainActivity.TAG, "getAngleInBenchmark compassReadInBenchmark = " + String.valueOf(compassReadInBenchmark));
-            //Log.d(MainActivity.TAG, "getAngleInBenchmark lightReadInBenchmark = " + String.valueOf(lightReadInBenchmark));
-            Log.d(MainActivity.TAG, "getAngleInBenchmark marginal = " + String.valueOf(marginal));
-            Log.d(MainActivity.TAG, "getAngleInBenchmark angle = " + String.valueOf(maxAngle));
-            Log.d(MainActivity.TAG, "*******************************************************");
-
             return maxAngle;
         }
     }
@@ -586,159 +607,229 @@ public class MainView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        int action = event.getAction();
+        boolean rt = m_gestureDectector.onTouchEvent(event);
+        if (!rt && event.getAction() == MotionEvent.ACTION_UP) {
+            m_gestureDectectorData.onUp(event);
+        }
+        return rt;
+    }
+
+    public boolean onTouchDown(MotionEvent event) {
         float X = event.getX();
         float Y = event.getY();
         float touchRadius = event.getTouchMajor();
-        switch (action) {
-            case MotionEvent.ACTION_DOWN:
-                m_touchedBallId = -1;
-                for (int i = 0; i < m_balls.size(); ++i) {
-                    Ball ball = m_balls.get(i);
-                    ball.m_isTouched = false;
+        m_touchedBallId = -1;
+        for (int i = 0; i < m_balls.size(); ++i) {
+            Ball ball = m_balls.get(i);
+            ball.m_isTouched = false;
 
-                    double dist;
-                    dist = Math.sqrt(Math.pow((X - ball.m_ballX), 2) + Math.pow((Y - ball.m_ballY), 2));
-                    if (dist <= (touchRadius + m_ballRadius)) {
-                        ball.m_isTouched = true;
-                        m_touchedBallId = i;
+            double dist;
+            dist = Math.sqrt(Math.pow((X - ball.m_ballX), 2) + Math.pow((Y - ball.m_ballY), 2));
+            if (dist <= (touchRadius + m_ballRadius)) {
+                ball.m_isTouched = true;
+                m_touchedBallId = i;
 
-                        boolean isOverlap = false;
-                        for (int j = 0; j < m_balls.size(); ++j) {
-                            if (j != m_touchedBallId) {
-                                Ball ball2 = m_balls.get(j);
+                boolean isOverlap = false;
+                for (int j = 0; j < m_balls.size(); ++j) {
+                    if (j != m_touchedBallId) {
+                        Ball ball2 = m_balls.get(j);
 
-                                double dist2 = Math.sqrt(Math.pow((X - ball2.m_ballX), 2) + Math.pow((Y - ball2.m_ballY), 2));
-                                if (dist2 <= m_ballRadius * 2) {
-                                    isOverlap = true;
-                                }
-                            }
+                        double dist2 = Math.sqrt(Math.pow((X - ball2.m_ballX), 2) + Math.pow((Y - ball2.m_ballY), 2));
+                        if (dist2 <= m_ballRadius * 2) {
+                            isOverlap = true;
                         }
-
-                        if (!isOverlap && !isBoundary(X, Y)) {
-                            ball.m_ballX = X;
-                            ball.m_ballY = Y;
-                            this.invalidate();
-                        }
-                    }
-
-                    if (m_touchedBallId > -1) {
-                        break;
                     }
                 }
 
-                if (m_touchedBallId == -1) {
-
-                    boolean show = false;
-
-                    for (RemotePhoneInfo remotePhone : m_remotePhones) {
-                        double angle_remote = calculateRemoteAngle_Benchmark(remotePhone.m_angleInBenchmark, remotePhone.m_isBenchmark);
-                        float pointX = m_localCoordinateCenterX + m_localCoordinateRadius * (float) Math.cos(Math.toRadians(angle_remote));
-                        float pointY = m_localCoordinateCenterY - m_localCoordinateRadius * (float) Math.sin(Math.toRadians(angle_remote));
-
-                        double dist = Math.sqrt(Math.pow((X - pointX), 2) + Math.pow((Y - pointY), 2));
-
-                        if (dist <= (touchRadius + m_remotePhoneRadius)) {
-                            show = true;
-                            break;
-                        }
-                    }
-
-                    if (show) {
-                        handler.postDelayed(mLongPressed, 500);
-                    }
+                if (!isOverlap && !isBoundary(X, Y)) {
+                    ball.m_ballX = X;
+                    ball.m_ballY = Y;
+                    this.invalidate();
                 }
+            }
 
+            if (m_touchedBallId > -1) {
                 break;
-            case MotionEvent.ACTION_MOVE:
-                if (getShowRemoteNames()) {
-                    boolean show = false;
+            }
+        }
 
-                    for (RemotePhoneInfo remotePhone : m_remotePhones) {
-                        double angle_remote = calculateRemoteAngle_Benchmark(remotePhone.m_angleInBenchmark,remotePhone.m_isBenchmark);
-                        float pointX = m_localCoordinateCenterX + m_localCoordinateRadius * (float) Math.cos(Math.toRadians(angle_remote));
-                        float pointY = m_localCoordinateCenterY - m_localCoordinateRadius * (float) Math.sin(Math.toRadians(angle_remote));
+        if (m_touchedBallId == -1) {
 
-                        double dist = Math.sqrt(Math.pow((X - pointX), 2) + Math.pow((Y - pointY), 2));
+            boolean show = false;
 
-                        if (dist <= (touchRadius + m_remotePhoneRadius)) {
-                            show = true;
-                            break;
-                        }
-                    }
+            for (RemotePhoneInfo remotePhone : m_remotePhones) {
+                double angle_remote = calculateRemoteAngle_Benchmark(remotePhone.m_angleInBenchmark, remotePhone.m_isBenchmark);
+                float pointX = m_localCoordinateCenterX + m_localCoordinateRadius * (float) Math.cos(Math.toRadians(angle_remote));
+                float pointY = m_localCoordinateCenterY - m_localCoordinateRadius * (float) Math.sin(Math.toRadians(angle_remote));
 
-                    if (!show) {
-                        handler.removeCallbacks(mLongPressed);
-                        setShowRemoteNames(false);
-                        invalidate();
-                    }
+                double dist = Math.sqrt(Math.pow((X - pointX), 2) + Math.pow((Y - pointY), 2));
+
+                if (dist <= (touchRadius + m_remotePhoneRadius)) {
+                    show = true;
+                    break;
                 }
+            }
 
-                if (m_touchedBallId > -1) {
-                    Ball ball = m_balls.get(m_touchedBallId);
-                    if (ball.m_isTouched) {
-                        boolean isOverlap = false;
-
-                        for (int j = 0; j < m_balls.size(); ++j) {
-                            if (j != m_touchedBallId) {
-                                Ball ball2 = m_balls.get(j);
-
-                                double dist = Math.sqrt(Math.pow((X - ball2.m_ballX), 2) + Math.pow((Y - ball2.m_ballY), 2));
-                                if (dist <= m_ballRadius * 2) {
-                                    isOverlap = true;
-                                }
-                            }
-                        }
-
-                        if (!isOverlap & !isBoundary(X, Y)) {
-                            ball.m_ballX = X;
-                            ball.m_ballY = Y;
-                            this.invalidate();
-                        }
-                    }
-                }
-                break;
-            case MotionEvent.ACTION_UP:
-                handler.removeCallbacks(mLongPressed);
-                if (getShowRemoteNames()) {
-                    setShowRemoteNames(false);
-                    invalidate();
-                }
-
-                if (m_touchedBallId > -1) {
-                    Ball ball = m_balls.get(m_touchedBallId);
-                    if (ball.m_isTouched) {
-                        boolean isOverlap = false;
-
-                        for (int j = 0; j < m_balls.size(); ++j) {
-                            if (j != m_touchedBallId) {
-                                Ball ball2 = m_balls.get(j);
-
-                                double dist = Math.sqrt(Math.pow((X - ball2.m_ballX), 2) + Math.pow((Y - ball2.m_ballY), 2));
-                                if (dist <= m_ballRadius * 2) {
-                                    isOverlap = true;
-                                }
-                            }
-                        }
-
-                        if (!isOverlap) {
-                            String name = isSending(ball.m_ballX, ball.m_ballY);
-                            if (!name.isEmpty()) {
-                                ((MainActivity) getContext()).showToast("send ball to : " + name);
-                                sendBall(ball, name);
-                                removeBall(ball.m_id);
-                                this.invalidate();
-                            }
-                        }
-                    }
-                }
-
-                for (Ball ball : m_balls) {
-                    ball.m_isTouched = false;
-                }
-                break;
+            if (show) {
+                handler.postDelayed(mLongPressed, 500);
+            }
         }
         return true;
+    }
+
+    public boolean onTouchMove(MotionEvent event) {
+        float X = event.getX();
+        float Y = event.getY();
+        float touchRadius = event.getTouchMajor();
+        if (getShowRemoteNames()) {
+            boolean show = false;
+
+            for (RemotePhoneInfo remotePhone : m_remotePhones) {
+                double angle_remote = calculateRemoteAngle_Benchmark(remotePhone.m_angleInBenchmark,remotePhone.m_isBenchmark);
+                float pointX = m_localCoordinateCenterX + m_localCoordinateRadius * (float) Math.cos(Math.toRadians(angle_remote));
+                float pointY = m_localCoordinateCenterY - m_localCoordinateRadius * (float) Math.sin(Math.toRadians(angle_remote));
+
+                double dist = Math.sqrt(Math.pow((X - pointX), 2) + Math.pow((Y - pointY), 2));
+
+                if (dist <= (touchRadius + m_remotePhoneRadius)) {
+                    show = true;
+                    break;
+                }
+            }
+
+            if (!show) {
+                handler.removeCallbacks(mLongPressed);
+                setShowRemoteNames(false);
+                invalidate();
+            }
+        }
+
+        if (m_touchedBallId > -1) {
+            Ball ball = m_balls.get(m_touchedBallId);
+            if (ball.m_isTouched) {
+                boolean isOverlap = false;
+
+                for (int j = 0; j < m_balls.size(); ++j) {
+                    if (j != m_touchedBallId) {
+                        Ball ball2 = m_balls.get(j);
+
+                        double dist = Math.sqrt(Math.pow((X - ball2.m_ballX), 2) + Math.pow((Y - ball2.m_ballY), 2));
+                        if (dist <= m_ballRadius * 2) {
+                            isOverlap = true;
+                        }
+                    }
+                }
+
+                if (!isOverlap && !isBoundary(X, Y)) {
+                    ball.m_ballX = X;
+                    ball.m_ballY = Y;
+                    this.invalidate();
+                }
+            }
+        }
+        return true;
+    }
+
+    public boolean onTouchUp(MotionEvent event) {
+        float X = event.getX();
+        float Y = event.getY();
+
+        handler.removeCallbacks(mLongPressed);
+        if (getShowRemoteNames()) {
+            setShowRemoteNames(false);
+            invalidate();
+        }
+
+        if (m_touchedBallId > -1) {
+            Ball ball = m_balls.get(m_touchedBallId);
+            if (ball.m_isTouched) {
+                boolean isOverlap = false;
+
+                for (int j = 0; j < m_balls.size(); ++j) {
+                    if (j != m_touchedBallId) {
+                        Ball ball2 = m_balls.get(j);
+
+                        double dist = Math.sqrt(Math.pow((X - ball2.m_ballX), 2) + Math.pow((Y - ball2.m_ballY), 2));
+                        if (dist <= m_ballRadius * 2) {
+                            isOverlap = true;
+                        }
+                    }
+                }
+
+                if (!isOverlap) {
+                    String name = isSending(ball.m_ballX, ball.m_ballY);
+                    if (!name.isEmpty()) {
+                        ((MainActivity) getContext()).showToast("send ball to : " + name);
+                        //sendBall(ball, name);
+                        removeBall(ball.m_id);
+                        this.invalidate();
+                    }
+                }
+            }
+        }
+
+        for (Ball ball : m_balls) {
+            ball.m_isTouched = false;
+        }
+        return true;
+    }
+
+    public boolean onFlick(MotionEvent e, float velocityX, float velocityY) {
+        if (!m_isFlicking && m_touchedBallId > -1) {
+            m_isFlicking = true;
+            m_flickInfo.startX = e.getX();
+            m_flickInfo.startY = e.getY();
+            m_flickInfo.velocityX = velocityX/500;
+            m_flickInfo.velocityY = velocityY/500;
+            m_flickInfo.startTime = System.currentTimeMillis();
+            while (m_isFlicking) {
+                doFlick();
+            }
+        }
+        return true;
+    }
+
+    public void doFlick() {
+        float newX, newY;
+        long currentTime = System.currentTimeMillis();
+        long timeElapse = currentTime - m_flickInfo.startTime;
+        float xDist = m_flickInfo.velocityX * timeElapse;
+        float yDist = m_flickInfo.velocityY * timeElapse;
+        //Log.d(MainActivity.TAG, "doFlick() timeElapse = " + timeElapse + ", xDist = " + xDist + ", yDist = " + yDist);
+        newX = m_flickInfo.startX + xDist;
+        newY = m_flickInfo.startY + yDist;
+        if (m_touchedBallId > -1) {
+            Ball ball = m_balls.get(m_touchedBallId);
+            if (ball.m_isTouched) {
+                boolean isOverlap = false;
+
+                for (int j = 0; j < m_balls.size(); ++j) {
+                    if (j != m_touchedBallId) {
+                        Ball ball2 = m_balls.get(j);
+
+                        double dist = Math.sqrt(Math.pow((newX - ball2.m_ballX), 2) + Math.pow((newY - ball2.m_ballY), 2));
+                        if (dist <= m_ballRadius * 2) {
+                            isOverlap = true;
+                        }
+                    }
+                }
+
+                String name = isSending(ball.m_ballX, ball.m_ballY);
+                if (!name.isEmpty()) {
+                    ((MainActivity) getContext()).showToast("send ball to : " + name);
+                    //sendBall(ball, name);
+                    removeBall(ball.m_id);
+                    this.invalidate();
+                    m_isFlicking = false;
+                }else if (!isOverlap && !isBoundary(newX, newY)) {
+                    ball.m_ballX = newX;
+                    ball.m_ballY = newY;
+                    this.invalidate();
+                } else {
+                    m_isFlicking = false;
+                }
+            }
+        }
     }
 
     private boolean isBoundary(float x, float y) {
@@ -941,10 +1032,6 @@ public class MainView extends View {
 
     public void clearRemotePhoneInfo() {
         m_remotePhones.clear();
-    }
-
-    public int getBallCount() {
-        return m_balls.size();
     }
 
 }

@@ -128,11 +128,14 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         }
 
        // mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.HelloOpenCvView);
-        mOpenCvCameraView = (CameraBridgeViewBase) new JavaCameraView(this, -1);
-        mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
-        setContentView(mOpenCvCameraView);
-        mOpenCvCameraView.setCvCameraViewListener(this);
-
+        if (m_mode != Mode.COMPASS) {
+            mOpenCvCameraView = (CameraBridgeViewBase) new JavaCameraView(this, -1);
+            mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
+            setContentView(mOpenCvCameraView);
+            mOpenCvCameraView.setCvCameraViewListener(this);
+        } else {
+            setContentView(R.layout.activity_main);
+        }
         /*
         m_startBtn = new Button(this);
         m_startBtn.setText("Start Log");
@@ -213,7 +216,8 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         m_drawView.setBackgroundColor(Color.WHITE);
 
         m_isLocked = false;
-        m_drawView.setLock(m_isLocked);
+        m_drawView.setLock(false);
+        m_drawView.enableFlick();
 
         // add views
         DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
@@ -259,12 +263,15 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
     public void onResume()
     {
         super.onResume();
-        if (!OpenCVLoader.initDebug()) {
+        if (m_mode != Mode.COMPASS) {
+            if (!OpenCVLoader.initDebug()) {
 
-            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_0_0, this, mLoaderCallback);
-        } else {
-            Log.d(TAG, "OpenCV library found inside package. Using it!");Log.d(TAG, "Internal OpenCV library not found. Using OpenCV Manager for initialization");
-            mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
+                OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_0_0, this, mLoaderCallback);
+            } else {
+                Log.d(TAG, "OpenCV library found inside package. Using it!");
+                Log.d(TAG, "Internal OpenCV library not found. Using OpenCV Manager for initialization");
+                mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
+            }
         }
 
         m_bluetoothData.setupThread();
