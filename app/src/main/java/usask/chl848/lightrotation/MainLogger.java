@@ -15,8 +15,13 @@ import java.util.Calendar;
  */
 public class MainLogger {
     private BufferedWriter m_bufferedWriter;
+    private MainActivity m_activity;
 
     public MainLogger(Context context, String fileName) {
+        m_activity = (MainActivity)(context);
+        if (m_activity != null && !m_activity.isLogEnabled()) {
+            return;
+        }
         String SUFFIX = ".txt";
         Calendar calendar = Calendar.getInstance();
         String year = String.valueOf(calendar.get(Calendar.YEAR));
@@ -63,6 +68,10 @@ public class MainLogger {
     }
 
     public void writeHeaders(String str) {
+        if (m_activity != null && !m_activity.isLogEnabled()) {
+            return;
+        }
+
         try {
             m_bufferedWriter.write(str);
             m_bufferedWriter.flush();
@@ -78,6 +87,10 @@ public class MainLogger {
     }
 
     public void write(String str, boolean isFlush) {
+        if (m_activity != null && !m_activity.isLogEnabled()) {
+            return;
+        }
+
         try {
             m_bufferedWriter.write(System.getProperty("line.separator"));
             m_bufferedWriter.write(str);
@@ -96,6 +109,10 @@ public class MainLogger {
     }
 
     public void flush() {
+        if (m_activity != null && !m_activity.isLogEnabled()) {
+            return;
+        }
+
         try {
             m_bufferedWriter.flush();
         } catch (IOException e) {
@@ -104,6 +121,10 @@ public class MainLogger {
     }
 
     public void close(){
+        if (m_activity != null && !m_activity.isLogEnabled()) {
+            return;
+        }
+
         try {
             m_bufferedWriter.flush();
             m_bufferedWriter.close();

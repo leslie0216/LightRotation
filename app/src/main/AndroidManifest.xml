@@ -24,7 +24,7 @@
             android:screenOrientation="portrait">
         </activity>
         <activity
-            android:name=".LoginActivity"
+            android:name=".LoginActivity_Experiment_1"
             android:label="@string/app_name"
             android:screenOrientation="portrait">
             <intent-filter>

@@ -35,6 +35,7 @@ import org.opencv.imgproc.Imgproc;
 import org.opencv.imgcodecs.Imgcodecs;
 
 import java.util.ArrayList;
+import java.util.concurrent.locks.Lock;
 
 public class MainActivity extends Activity implements CameraBridgeViewBase.CvCameraViewListener2{
 
@@ -49,10 +50,25 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
 
     private Mode m_mode;
 
+    public enum LockMode {
+        NONE, // no lock
+        STATIC, // enbable lock button
+        DYNAMIC // lock when touch ball
+    }
+    private LockMode m_lockMode;
+
+    public enum PassMode {
+        SINGLE,
+        MULTIPLE
+    }
+    private PassMode m_passMode;
+
     private String m_userName;
     private String m_userId;
     private int m_userColor;
-    private Button m_startBtn;
+    private boolean m_isLogEnabled;
+
+    private Button m_debugBtn;
     private boolean m_isDebugMode;
 
     private Button m_lockBtn;
@@ -104,6 +120,15 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         }
     };
 
+    /**
+     * experiment begin
+     */
+    private Button m_startBtn;
+    private Button m_continueBtn;
+    /**
+     * experiment end
+     */
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -125,6 +150,25 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         if (bundle.containsKey("mode")) {
             String mode = bundle.getString("mode");
             m_mode = Mode.valueOf(mode.toUpperCase());
+        } else {
+            m_mode = Mode.COMPASS;
+        }
+        if (bundle.containsKey("lockMode")) {
+            String lockmode = bundle.getString("lockMode");
+            m_lockMode = LockMode.valueOf(lockmode.toUpperCase());
+        } else {
+            m_lockMode = LockMode.NONE;
+        }
+        if (bundle.containsKey("passMode")) {
+            String passmode = bundle.getString("passMode");
+            m_passMode = PassMode.valueOf(passmode.toUpperCase());
+        } else {
+            m_passMode = PassMode.MULTIPLE;
+        }
+        if (bundle.containsKey("isLogEnabled")) {
+            m_isLogEnabled = bundle.getBoolean("isLogEnabled");
+        } else {
+            m_isLogEnabled = false;
         }
 
        // mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.HelloOpenCvView);
@@ -136,53 +180,33 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         } else {
             setContentView(R.layout.activity_main);
         }
-        /*
-        m_startBtn = new Button(this);
-        m_startBtn.setText("Start Log");
 
-        m_startBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (m_drawView != null) {
-                    if (m_drawView.isLogEnabled())
-                    {
-                        m_drawView.disableLog();
-                        m_startBtn.setText("Start Log");
-                    } else {
-                        m_drawView.enableLog();
-                        m_startBtn.setText("Stop Log");
-                    }
-                }
-            }
-        });
-        */
+        // Debug Button
+        m_debugBtn = new Button(this);
+        m_debugBtn.setText(getResources().getString(R.string.debug));
 
-        // Start Button
-        m_startBtn = new Button(this);
-        m_startBtn.setText(getResources().getString(R.string.debug));
-
-        m_startBtn.setOnClickListener(new View.OnClickListener() {
+        m_debugBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (m_drawView != null) {
                     if (m_isDebugMode) {
                         m_isDebugMode = false;
                         m_drawView.setBackgroundColor(Color.WHITE);
-                        m_startBtn.setText(getResources().getString(R.string.debug));
+                        m_debugBtn.setText(getResources().getString(R.string.debug));
                     } else {
                         m_isDebugMode = true;
                         m_drawView.setBackgroundColor(Color.TRANSPARENT);
-                        m_startBtn.setText(getResources().getString(R.string.normal));
+                        m_debugBtn.setText(getResources().getString(R.string.normal));
                     }
                 }
             }
         });
 
-        RelativeLayout relativeLayout = new RelativeLayout(this);
+        RelativeLayout relativeLayout_debug = new RelativeLayout(this);
 
-        RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        layoutParams.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
-        relativeLayout.addView(m_startBtn, layoutParams);
+        RelativeLayout.LayoutParams layoutParams_debug = new RelativeLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        layoutParams_debug.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
+        relativeLayout_debug.addView(m_debugBtn, layoutParams_debug);
 
         // Lock Button
         m_lockBtn = new Button(this);
@@ -205,11 +229,67 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
             }
         });
 
-        RelativeLayout relativeLayout2 = new RelativeLayout(this);
+        RelativeLayout relativeLayout_lock = new RelativeLayout(this);
 
-        RelativeLayout.LayoutParams layoutParams2 = new RelativeLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        layoutParams2.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
-        relativeLayout2.addView(m_lockBtn, layoutParams2);
+        RelativeLayout.LayoutParams layoutParams_lock = new RelativeLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        layoutParams_lock.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+        relativeLayout_lock.addView(m_lockBtn, layoutParams_lock);
+
+        /**
+         * experiment begin
+         */
+        // start button
+        m_startBtn = new Button(this);
+        m_startBtn.setText("Start");
+        m_startBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (m_drawView != null && m_drawView.getBallCount() == 0) {
+                    if (!m_drawView.isFinished()) {
+                        m_drawView.startBlock();
+                    } else {
+                        m_drawView.closeLogger();
+                        finish();
+                        System.exit(0);
+                    }
+                }
+            }
+        });
+
+        RelativeLayout relativeLayout_start = new RelativeLayout(this);
+
+        RelativeLayout.LayoutParams layoutParams_start = new RelativeLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        layoutParams_start.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+        relativeLayout_start.addView(m_startBtn, layoutParams_start);
+
+        setStartButtonEnabled(false);
+
+        // continue button
+        m_continueBtn = new Button(this);
+        m_continueBtn.setText("Continue");
+        m_continueBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (m_drawView != null && m_drawView.getBallCount() == 0)
+                    if (!m_drawView.isFinished()) {
+                        m_drawView.nextBlock();
+                    } else {
+                        showDoneButton();
+                    }
+            }
+        });
+
+        RelativeLayout relativeLayout_con = new RelativeLayout(this);
+
+        RelativeLayout.LayoutParams layoutParams_con = new RelativeLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        layoutParams_con.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+        layoutParams_con.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+        relativeLayout_con.addView(m_continueBtn, layoutParams_con);
+
+        setContinueButtonEnabled(false);
+        /**
+         * experiment end
+         */
 
         // Draw View
         m_drawView = new MainView(this);
@@ -223,10 +303,22 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
         // add draw view
         this.addContentView(m_drawView, new LinearLayout.LayoutParams(displayMetrics.widthPixels, (displayMetrics.heightPixels)));
-        // add startButton
-        this.addContentView(relativeLayout, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        // add debugButton
+        this.addContentView(relativeLayout_debug, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         // add lockButton
-        this.addContentView(relativeLayout2, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        if (m_lockMode == LockMode.STATIC) {
+            this.addContentView(relativeLayout_lock, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        }
+        /**
+         * experiment begin
+         */
+        // add startButton
+        this.addContentView(relativeLayout_start, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        // add continueButton
+        this.addContentView(relativeLayout_con, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        /**
+         * experiment end
+         */
 
         m_bluetoothData = new BluetoothClientData(this);
         m_bluetoothData.init();
@@ -236,6 +328,39 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
 
         timerHandler.postDelayed(timerRunnable, 0);
     }
+
+    /**
+     * experiment begin
+     */
+    public void setStartButtonEnabled(boolean enabled) {
+        m_startBtn.setEnabled(enabled);
+    }
+
+    public void setContinueButtonEnabled(boolean enabled) {
+        m_continueBtn.setEnabled(enabled);
+    }
+
+    public void showDoneButton() {
+        setContinueButtonEnabled(false);
+        m_startBtn.setText("Done");
+        m_startBtn.setEnabled(true);
+    }
+
+    public boolean isLogEnabled() {
+        return m_isLogEnabled;
+    }
+
+    public LockMode getLockMode() {
+        return m_lockMode;
+    }
+
+    public PassMode getPassMode() {
+        return m_passMode;
+    }
+
+    /**
+     * experiment end
+     */
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {

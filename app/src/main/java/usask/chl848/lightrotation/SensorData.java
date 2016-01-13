@@ -130,8 +130,7 @@ public class SensorData {
 
     public  void updateView(float[] values) {
         if(m_activity.m_drawView != null) {
-            m_activity.m_drawView.setRotationData(values);
-            m_activity.m_drawView.setIsAccurate(!m_isCalibration);
+            m_activity.m_drawView.setRotationData(values, !m_isCalibration);
         }
     }
 }
