@@ -71,7 +71,7 @@ public class MainView extends View {
     private float m_localCoordinateRadius;
 
     public class RemotePhoneInfo {
-        String m_deviceName;
+        //String m_deviceName;
         String m_userName;
         int m_color;
         float m_compassAngle;
@@ -112,10 +112,7 @@ public class MainView extends View {
     private boolean m_isFlickEnabled = true;
     private boolean m_isFlicking = false;
     private FlickInfo m_flickInfo = new FlickInfo();
-
-    //private MainLogger m_logger = null;
-    private boolean m_logEnabled;
-    private int m_logCount;
+    private static final int TARGET_MAGNETISM_DEGREE = 40;
 
     /**
      * experiment begin
@@ -185,12 +182,6 @@ public class MainView extends View {
         m_gestureDectectorData = new GestureDetectorData(this);
         m_gestureDectector = new GestureDetector(context, m_gestureDectectorData);
         m_gestureDectector.setIsLongpressEnabled(false);
-/*
-        m_logger = new MainLogger(getContext(), m_username+"_"+getResources().getString(R.string.app_name)+"_angle");
-        m_logger.writeHeaders("userName" + ","  + "angle" + "," + "timestamp");
-        m_logEnabled = false;
-        m_logCount = 0;
-        */
 
         /**
          * experiment begin
@@ -201,25 +192,6 @@ public class MainView extends View {
         /**
          * experiment end
          */
-    }
-
-    public void enableLog()
-    {
-        m_logEnabled = true;
-    }
-
-    public void disableLog()
-    {
-        if (isLogEnabled())
-        {
-            //m_logger.flush();
-        }
-        m_logEnabled = false;
-    }
-
-    public boolean isLogEnabled()
-    {
-        return m_logEnabled;
     }
 
     public void setLock(boolean isLocked) {
@@ -262,12 +234,7 @@ public class MainView extends View {
     }
 
     public void setLightDir(Point minLoc, Point maxLoc, int imgWidth, int imgHeight){
-        float angle = m_lightData.setLightDir(minLoc, maxLoc, imgWidth, imgHeight);
-        if (isLogEnabled())
-        {
-            //m_logger.write(m_username + "," + angle + "," + System.currentTimeMillis(), true);
-            //++m_logCount;
-        }
+        m_lightData.setLightDir(minLoc, maxLoc, imgWidth, imgHeight);
     }
 
     public void enableFlick() {
@@ -477,7 +444,6 @@ public class MainView extends View {
         showBalls(canvas);
         showBoundary(canvas);
         showArrow(canvas);
-        //showLogCount(canvas);
         /**
          * experiment begin
          */
@@ -513,16 +479,6 @@ public class MainView extends View {
 
         DisplayMetrics displayMetrics = getContext().getResources().getDisplayMetrics();
         canvas.drawText(mode.toString(), displayMetrics.widthPixels * 0.7f, displayMetrics.heightPixels * 0.05f, m_paint);
-    }
-
-    private void showLogCount(Canvas canvas) {
-        m_paint.setTextSize(m_textSize);
-        m_paint.setColor(Color.BLUE);
-        m_paint.setStyle(Paint.Style.FILL_AND_STROKE);
-        m_paint.setStrokeWidth(m_textStrokeWidth);
-
-        DisplayMetrics displayMetrics = getContext().getResources().getDisplayMetrics();
-        canvas.drawText("Count : " + m_logCount, displayMetrics.widthPixels * 0.75f, displayMetrics.heightPixels * 0.1f, m_paint);
     }
 
     public void showCompassAccuracy(Canvas canvas) {
@@ -918,41 +874,108 @@ public class MainView extends View {
         return true;
     }
 
-    public boolean onFlick(MotionEvent e, float velocityX, float velocityY) {
+    public boolean onFlick(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
         m_numberOfRelease++; // experiment
         if (!m_isFlicking && m_touchedBallId > -1) {
             m_numberOfDrops++; // experiment
             m_isFlicking = true;
-            m_flickInfo.startX = e.getX();
-            m_flickInfo.startY = e.getY();
+            m_flickInfo.startX = e2.getX();
+            m_flickInfo.startY = e2.getY();
             m_flickInfo.velocityX = velocityX/1000;
             m_flickInfo.velocityY = velocityY/1000;
             m_flickInfo.startTime = System.currentTimeMillis();
-            /*
-            while (m_isFlicking) {
-                doFlick();
+
+            double radiusSqr = Math.pow(m_localCoordinateRadius, 2);
+            float newX = e2.getX();
+            float newY = e2.getY();
+            double vy = Math.abs(velocityY / velocityX);
+            double distSqr = Math.pow(Math.abs(m_localCoordinateCenterX - newX), 2) + Math.pow(Math.abs(m_localCoordinateCenterY - newY), 2);
+            //Log.d(MainActivity.TAG, "getFlickAngle startXY = (" + e2.getX() + "," + e2.getY() + "), vy = " + vy);
+            while (distSqr < radiusSqr) {
+                if (velocityX >= 0) {
+                    newX += 1;
+                } else {
+                    newX -= 1;
+                }
+                if (velocityY >= 0) {
+                    newY += vy;
+                } else {
+                    newY -= vy;
+                }
+                distSqr = Math.pow(Math.abs(m_localCoordinateCenterX - newX), 2) + Math.pow(Math.abs(m_localCoordinateCenterY - newY), 2);
+            }
+            //Log.d(MainActivity.TAG, "getFlickAngle endXY = (" + newX + "," + newY + ")");
+            double flickAngle = getFlickAngle(m_localCoordinateCenterX, m_localCoordinateCenterY, newX, newY);
+            //Log.d(MainActivity.TAG, "onFlick flickAngle = " + flickAngle );
+
+            // find nearest remote phone
+            boolean isFound = false;
+            double maxAngle = 360;
+            double target_angle_remote = 0.0;
+            for (RemotePhoneInfo phone : m_remotePhones) {
+                double angle_remote = calculateRemoteAngle_Benchmark(phone.m_angleInBenchmark, phone.m_isBenchmark);
+                double deltaAngle = Math.abs(flickAngle - angle_remote);
+                if (deltaAngle > 180) {
+                    deltaAngle = 360 - deltaAngle;
+                }
+                if (deltaAngle < TARGET_MAGNETISM_DEGREE && deltaAngle < maxAngle) {
+                    isFound = true;
+                    maxAngle = deltaAngle;
+                    target_angle_remote = angle_remote;
+                }
             }
 
-            if (((MainActivity) getContext()).getLockMode() == MainActivity.LockMode.DYNAMIC) {
-                setLock(false);
-            }*/
+            if (isFound) {
+                float pointX = m_localCoordinateCenterX + m_localCoordinateRadius * (float)Math.cos(Math.toRadians(target_angle_remote));
+                float pointY = m_localCoordinateCenterY - m_localCoordinateRadius * (float)Math.sin(Math.toRadians(target_angle_remote));
+
+                // calculate new velocity
+                double velocity = Math.sqrt(Math.pow(m_flickInfo.velocityX, 2) + Math.pow(m_flickInfo.velocityY, 2));
+                double newFlickAngle = getFlickAngle(e2.getX(), e2.getY(), pointX, pointY);
+                m_flickInfo.velocityX = (float)(velocity * Math.cos(Math.toRadians(newFlickAngle)));
+                m_flickInfo.velocityY = (float)((-1) * velocity * Math.sin(Math.toRadians(newFlickAngle)));
+            }
+
             BallFlickThread thread = new BallFlickThread(getContext(), m_flickInfo);
             thread.start();
         }
         return true;
     }
 
-    public void doFlick() {
-        float newX, newY;
-        long currentTime = System.currentTimeMillis();
-        long timeElapse = currentTime - m_flickInfo.startTime;
-        float xDist = m_flickInfo.velocityX * timeElapse;
-        float yDist = m_flickInfo.velocityY * timeElapse;
-        //Log.d(MainActivity.TAG, "doFlick() timeElapse = " + timeElapse + ", xDist = " + xDist + ", yDist = " + yDist);
-        newX = m_flickInfo.startX + xDist;
-        newY = m_flickInfo.startY + yDist;
-        moveBall(newX, newY);
-        this.invalidate();
+    private double getFlickAngle(float startX, float startY, float endX, float endY) {
+        float deltaX = endX - startX;
+        float deltaY = endY - startY;
+        double angle = -1;
+
+        int quadrant = -1;
+        if (deltaX > 0 && deltaY < 0) {
+            quadrant = 1;
+        } else if (deltaX < 0 && deltaY < 0) {
+            quadrant = 2;
+        } else if (deltaX < 0 && deltaY > 0) {
+            quadrant = 3;
+        } else if (deltaX > 0 && deltaY > 0) {
+            quadrant = 4;
+        }
+
+        if (quadrant != -1) {
+            angle = Math.toDegrees(Math.atan(Math.abs(deltaY/deltaX)));
+            switch (quadrant) {
+                case 1:
+                    break;
+                case 2:
+                    angle = 180 - angle;
+                    break;
+                case 3:
+                    angle = 180 + angle;
+                    break;
+                case 4:
+                    angle = 360 - angle;
+                    break;
+            }
+        }
+
+        return angle;
     }
 
     public void moveBall(float newX, float newY) {

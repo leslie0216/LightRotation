@@ -35,7 +35,6 @@ import org.opencv.imgproc.Imgproc;
 import org.opencv.imgcodecs.Imgcodecs;
 
 import java.util.ArrayList;
-import java.util.concurrent.locks.Lock;
 
 public class MainActivity extends Activity implements CameraBridgeViewBase.CvCameraViewListener2{
 
@@ -165,11 +164,7 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         } else {
             m_passMode = PassMode.MULTIPLE;
         }
-        if (bundle.containsKey("isLogEnabled")) {
-            m_isLogEnabled = bundle.getBoolean("isLogEnabled");
-        } else {
-            m_isLogEnabled = false;
-        }
+        m_isLogEnabled = bundle.containsKey("isLogEnabled") && bundle.getBoolean("isLogEnabled");
 
        // mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.HelloOpenCvView);
         if (m_mode != Mode.COMPASS) {

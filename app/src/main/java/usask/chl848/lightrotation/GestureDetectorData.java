@@ -47,7 +47,7 @@ public class GestureDetectorData implements GestureDetector.OnGestureListener {
     @Override
     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
         //Log.d(MainActivity.TAG, "GestureDetectorData::onFling(), start = (" + e1.getX() + "," + e1.getY() + "), end = (" + e2.getX() + "," + e2.getY() + "),vx = " + velocityX + ", vy = " + velocityY);
-        return m_view.isFlickEnabled() && m_view.isFlicking() || m_view.onFlick(e2, velocityX, velocityY);
+        return m_view.isFlickEnabled() && m_view.isFlicking() || m_view.onFlick(e1, e2, velocityX, velocityY);
     }
 
     public boolean onUp(MotionEvent e) {
