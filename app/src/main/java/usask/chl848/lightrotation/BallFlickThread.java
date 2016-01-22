@@ -19,6 +19,9 @@ public class BallFlickThread extends Thread {
         MainActivity ma = (MainActivity)m_context;
 
         if (ma.m_drawView.getTouchedBallId() > -1) {
+            if (ma.getLockMode() == MainActivity.LockMode.DYNAMIC) {
+                ma.m_drawView.setLock(true);
+            }
             while (ma.m_drawView.isFlicking()) {
                 float newX, newY;
                 long currentTime = System.currentTimeMillis();
@@ -32,7 +35,9 @@ public class BallFlickThread extends Thread {
                 ma.m_drawView.postInvalidate();
             }
 
-            ma.m_drawView.setLock(false);
+            if (ma.getLockMode() == MainActivity.LockMode.DYNAMIC) {
+                ma.m_drawView.setLock(false);
+            }
         }
     }
 }

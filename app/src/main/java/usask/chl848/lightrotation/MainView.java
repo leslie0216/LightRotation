@@ -112,7 +112,7 @@ public class MainView extends View {
     private boolean m_isFlickEnabled = true;
     private boolean m_isFlicking = false;
     private FlickInfo m_flickInfo = new FlickInfo();
-    private static final int TARGET_MAGNETISM_DEGREE = 40;
+    private static final int TARGET_MAGNETISM_DEGREE = 30;
 
     /**
      * experiment begin
@@ -125,12 +125,13 @@ public class MainView extends View {
     private int m_numberOfTouchBall;
     private int m_numberOfLongPress;
     private int m_numberOfRelease;
+    private int m_numberOfLock;
     private String m_receiverName;
     private int m_maxBlocks;
     private int m_maxTrails;
     private int m_currentBlock;
     private int m_currentTrail;
-    private static final int m_experimentPhoneNumber = 1;
+    private static final int m_experimentPhoneNumber = 3;
     private MainLogger m_logger;
     private MainLogger m_angleLogger;
     private MainLogger m_bayesianLogger;
@@ -171,10 +172,9 @@ public class MainView extends View {
 
         m_remotePhoneRadius = displayMetrics.widthPixels * 0.1f;
 
-        m_bayesianPrior = new double[360];
-        double uniquePrior = 1.0/360.0;
-        for(int i=0; i<360; ++i) {
-            m_bayesianPrior[i] = uniquePrior;
+        m_bayesianPrior = new double[180];
+        for(int i=0; i<180; ++i) {
+            m_bayesianPrior[i] = 1;
         }
 
         setShowRemoteNames(false);
@@ -195,10 +195,11 @@ public class MainView extends View {
     }
 
     public void setLock(boolean isLocked) {
-        if (isLocked) {
+        if (isLocked && !m_isLocked) {
             m_lockedCompassAngle = m_compassData.getRotationVector().m_z;
             m_lockedLightAngle = m_lightData.getAngle();
             m_lockedBaysianAngle = getAngleInBenchmark();
+            m_numberOfLock++; //experiment
         }
         m_isLocked = isLocked;
     }
@@ -399,7 +400,24 @@ public class MainView extends View {
 
             // update prior with last record
             //System.arraycopy(probs, 0, m_bayesianPrior, 0, jointProbs.length);
+            //checkPrior();
+
             return maxAngle;
+        }
+    }
+
+    private void checkPrior() {
+        double minProb = 100;
+        for (double value : m_bayesianPrior) {
+            if (value != 0 && value != Double.NaN && value < minProb) {
+                minProb = value;
+            }
+        }
+
+        for (int i=0; i<m_bayesianPrior.length; ++i) {
+            if (m_bayesianPrior[i] == 0 || m_bayesianPrior[i] == Double.NaN) {
+                m_bayesianPrior[i] = minProb/10;
+            }
         }
     }
 
@@ -428,7 +446,7 @@ public class MainView extends View {
     protected void onDraw(Canvas canvas) {
         showMessage(canvas);
         showUserName(canvas);
-
+        showArrow(canvas);
         MainActivity ma = (MainActivity)getContext();
         if (ma != null && ma.getIsDebug()) {
             showDirection(canvas);
@@ -438,12 +456,12 @@ public class MainView extends View {
         showLightAccuracy(canvas);
 
         showMode(canvas);
-        showLocalCircleCoordinate(canvas);
         showLocalRotationAngle(canvas);
         showLocalLightAngle(canvas);
-        showBalls(canvas);
         showBoundary(canvas);
-        showArrow(canvas);
+        showLocalCircleCoordinate(canvas);
+        showBalls(canvas);
+
         /**
          * experiment begin
          */
@@ -478,7 +496,7 @@ public class MainView extends View {
         MainActivity.Mode mode = ma.getCurrentMode();
 
         DisplayMetrics displayMetrics = getContext().getResources().getDisplayMetrics();
-        canvas.drawText(mode.toString(), displayMetrics.widthPixels * 0.7f, displayMetrics.heightPixels * 0.05f, m_paint);
+        canvas.drawText(mode.toString(), displayMetrics.widthPixels * 0.4f, displayMetrics.heightPixels * 0.03f, m_paint);
     }
 
     public void showCompassAccuracy(Canvas canvas) {
@@ -756,6 +774,9 @@ public class MainView extends View {
         } else {
             // experiment
             m_numberOfTouchBall++;
+            if (isFlicking()) {
+                m_isFlicking = false;
+            }
             if (((MainActivity) getContext()).getLockMode() == MainActivity.LockMode.DYNAMIC) {
                 setLock(true);
             }
@@ -1249,7 +1270,7 @@ public class MainView extends View {
         // init ball names
         m_ballNames = new ArrayList<>();
 
-        m_maxBlocks = 5;
+        m_maxBlocks = 3;
         m_maxTrails = 9;
 
         m_currentBlock = 0;
@@ -1261,8 +1282,8 @@ public class MainView extends View {
 
         m_logger = null;
         m_logger = new MainLogger(getContext(), m_id+"_"+m_userName+"_"+getResources().getString(R.string.app_name));
-        //<participantID> <participantName> <lockMode> <passMode> <block#> <trial#> <receiver name> <elapsed time for this trial> <number of errors for this trial> <number of release for this trial> <number of drops for this trial> <number of touch for this trial> <number of touch ball for this trial> <number of long press for this trial> <timestamp>
-        m_logger.writeHeaders("participantID" + "," + "participantName" + "," + "lockMode" + "," + "passMode" + "," + "block" + "," + "trial" + "," + "receiverName" + "," + "elapsedTime" + "," + "errors" + "," + "release" + "," + "drops" + "," + "touch" + "," + "touchBall" + "," + "longPress" + "," + "timestamp");
+        //<participantID> <participantName> <lockMode> <passMode> <block#> <trial#> <receiver name> <elapsed time for this trial> <number of errors for this trial> <number of release for this trial> <number of drops for this trial> <number of touch for this trial> <number of touch ball for this trial> <number of long press for this trial> <number of lock for this trail> <timestamp>
+        m_logger.writeHeaders("participantID" + "," + "participantName" + "," + "lockMode" + "," + "passMode" + "," + "block" + "," + "trial" + "," + "receiverName" + "," + "elapsedTime" + "," + "errors" + "," + "release" + "," + "drops" + "," + "touch" + "," + "touchBall" + "," + "longPress" + "," + "lock" + "," + "timestamp");
 
         m_angleLogger = null;
         m_angleLogger = new MainLogger(getContext(), m_id+"_"+m_userName+"_"+getResources().getString(R.string.app_name)+"_orientation");
@@ -1374,9 +1395,9 @@ public class MainView extends View {
             ++m_currentTrail;
         }
 
-        //<participantID> <participantName> <lockMode> <passMode> <block#> <trial#> <receiver name> <elapsed time for this trial> <number of errors for this trial> <number of release for this trial> <number of drops for this trial> <number of touch for this trial> <number of touch ball for this trial> <number of long press for this trial> <timestamp>
+        //<participantID> <participantName> <lockMode> <passMode> <block#> <trial#> <receiver name> <elapsed time for this trial> <number of errors for this trial> <number of release for this trial> <number of drops for this trial> <number of touch for this trial> <number of touch ball for this trial> <number of long press for this trial> <number of lock for this trail> <timestamp>
         if (m_logger != null) {
-            m_logger.write(m_id + "," + m_userName + "," + ((MainActivity) getContext()).getLockMode().toString() + "," + ((MainActivity) getContext()).getPassMode().toString() + "," + m_currentBlock + "," + m_currentTrail + "," + m_receiverName + "," + timeElapse + "," + m_numberOfErrors + "," + m_numberOfRelease + "," + m_numberOfDrops + "," + m_numberOfTouch + "," + m_numberOfTouchBall + "," + m_numberOfLongPress + "," + trailEndTime, true);
+            m_logger.write(m_id + "," + m_userName + "," + ((MainActivity) getContext()).getLockMode().toString() + "," + ((MainActivity) getContext()).getPassMode().toString() + "," + m_currentBlock + "," + m_currentTrail + "," + m_receiverName + "," + timeElapse + "," + m_numberOfErrors + "," + m_numberOfRelease + "," + m_numberOfDrops + "," + m_numberOfTouch + "," + m_numberOfTouchBall + "," + m_numberOfLongPress + "," + m_numberOfLock + "," + trailEndTime, true);
         }
 
         if (m_angleLogger != null) {
@@ -1416,6 +1437,7 @@ public class MainView extends View {
         m_numberOfLongPress = 0;
         m_numberOfRelease = 0;
         m_receiverName = "";
+        m_numberOfLock = 0;
     }
     /**
      * experiment end

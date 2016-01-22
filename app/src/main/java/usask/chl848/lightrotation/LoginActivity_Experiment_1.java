@@ -27,9 +27,6 @@ public class LoginActivity_Experiment_1 extends Activity {
     private static final String[] LockModes = {"None", "Static", "Dynamic"};
     private String m_lockMode;
 
-    private static final String[] PassModes = {"Multiple", "Single"};
-    private String m_passMode;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -41,13 +38,6 @@ public class LoginActivity_Experiment_1 extends Activity {
         spinnerLock.setAdapter(adapterLock);
         spinnerLock.setOnItemSelectedListener(new SpinnerLockSelectedListener());
         spinnerLock.setVisibility(View.VISIBLE);
-
-        Spinner spinnerPass = (Spinner) findViewById(R.id.spinner_pass_mode);
-        ArrayAdapter<String> adapterPass = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, PassModes);
-        adapterPass.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinnerPass.setAdapter(adapterPass);
-        spinnerPass.setOnItemSelectedListener(new SpinnerPassSelectedListener());
-        spinnerPass.setVisibility(View.VISIBLE);
 
         Button btnPrev=(Button)this.findViewById(R.id.btn_go_ex1);
         btnPrev.setOnClickListener(new View.OnClickListener() {
@@ -64,7 +54,7 @@ public class LoginActivity_Experiment_1 extends Activity {
                     bundle.putInt("color", Color.BLACK);
                     bundle.putString("mode", "Compass");
                     bundle.putString("lockMode", m_lockMode);
-                    bundle.putString("passMode", m_passMode);
+                    bundle.putString("passMode", "Multiple");
                     bundle.putBoolean("isLogEnabled", isLogEnabled());
                     intent.putExtras(bundle);
                     LoginActivity_Experiment_1.this.startActivity(intent);
@@ -79,17 +69,6 @@ public class LoginActivity_Experiment_1 extends Activity {
         public void onItemSelected(AdapterView<?> arg0, View arg1, int arg2,
                                    long arg3) {
             m_lockMode = LockModes[arg2];
-        }
-
-        public void onNothingSelected(AdapterView<?> arg0) {
-        }
-    }
-
-    class SpinnerPassSelectedListener implements AdapterView.OnItemSelectedListener {
-
-        public void onItemSelected(AdapterView<?> arg0, View arg1, int arg2,
-                                   long arg3) {
-            m_passMode = PassModes[arg2];
         }
 
         public void onNothingSelected(AdapterView<?> arg0) {

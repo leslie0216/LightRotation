@@ -91,12 +91,10 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
     Runnable timerRunnable = new Runnable() {
         @Override
         public void run() {
-            if (!m_isLocked) {
-                if (m_bluetoothData.isMessageListEmpty()) {
-                    m_drawView.cookLocationMsg();
-                }
-                m_bluetoothData.sendMessage();
+            if (m_bluetoothData.isMessageListEmpty()) {
+                m_drawView.cookLocationMsg();
             }
+            m_bluetoothData.sendMessage();
             m_drawView.invalidate();
             timerHandler.postDelayed(this, 200);
         }
@@ -200,6 +198,7 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         RelativeLayout relativeLayout_debug = new RelativeLayout(this);
 
         RelativeLayout.LayoutParams layoutParams_debug = new RelativeLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        layoutParams_debug.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
         layoutParams_debug.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
         relativeLayout_debug.addView(m_debugBtn, layoutParams_debug);
 
@@ -227,6 +226,7 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         RelativeLayout relativeLayout_lock = new RelativeLayout(this);
 
         RelativeLayout.LayoutParams layoutParams_lock = new RelativeLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        layoutParams_lock.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
         layoutParams_lock.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
         relativeLayout_lock.addView(m_lockBtn, layoutParams_lock);
 
@@ -254,7 +254,7 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         RelativeLayout relativeLayout_start = new RelativeLayout(this);
 
         RelativeLayout.LayoutParams layoutParams_start = new RelativeLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        layoutParams_start.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+        layoutParams_start.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
         relativeLayout_start.addView(m_startBtn, layoutParams_start);
 
         setStartButtonEnabled(false);
@@ -269,7 +269,9 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
                     if (!m_drawView.isFinished()) {
                         m_drawView.nextBlock();
                     } else {
-                        showDoneButton();
+                        m_drawView.closeLogger();
+                        setContinueButtonEnabled(false);
+                        //showDoneButton();
                     }
             }
         });
@@ -277,7 +279,6 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         RelativeLayout relativeLayout_con = new RelativeLayout(this);
 
         RelativeLayout.LayoutParams layoutParams_con = new RelativeLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        layoutParams_con.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
         layoutParams_con.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
         relativeLayout_con.addView(m_continueBtn, layoutParams_con);
 
@@ -299,7 +300,7 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         // add draw view
         this.addContentView(m_drawView, new LinearLayout.LayoutParams(displayMetrics.widthPixels, (displayMetrics.heightPixels)));
         // add debugButton
-        this.addContentView(relativeLayout_debug, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        //this.addContentView(relativeLayout_debug, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         // add lockButton
         if (m_lockMode == LockMode.STATIC) {
             this.addContentView(relativeLayout_lock, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
