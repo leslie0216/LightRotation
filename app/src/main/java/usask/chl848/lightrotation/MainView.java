@@ -113,6 +113,7 @@ public class MainView extends View {
     private boolean m_isFlicking = false;
     private FlickInfo m_flickInfo = new FlickInfo();
     private static final int TARGET_MAGNETISM_DEGREE = 30;
+    private static final double FLICK_ANGLE_INTERVAL = 60.0;
 
     /**
      * experiment begin
@@ -131,7 +132,7 @@ public class MainView extends View {
     private int m_maxTrails;
     private int m_currentBlock;
     private int m_currentTrail;
-    private static final int m_experimentPhoneNumber = 3;
+    private static final int m_experimentPhoneNumber = 1;
     private MainLogger m_logger;
     private MainLogger m_angleLogger;
     private MainLogger m_bayesianLogger;
@@ -162,9 +163,9 @@ public class MainView extends View {
 
         m_id = ((MainActivity)(context)).getUserId();
         m_userName = ((MainActivity)(context)).getUserName();
-        //m_color = ((MainActivity)(context)).getUserColor();
-        Random rnd = new Random();
-        m_color = Color.argb(255, rnd.nextInt(256), rnd.nextInt(256), rnd.nextInt(256));
+        m_color = ((MainActivity)(context)).getUserColor();
+        //Random rnd = new Random();
+        //m_color = Color.argb(255, rnd.nextInt(256), rnd.nextInt(256), rnd.nextInt(256));
 
         m_localCoordinateCenterX = displayMetrics.widthPixels * 0.5f;
         m_localCoordinateCenterY = displayMetrics.heightPixels * 0.45f;
@@ -456,6 +457,7 @@ public class MainView extends View {
         showLocalRotationAngle(canvas);
         showLocalLightAngle(canvas);
         showBoundary(canvas);
+        showFlickBoundary(canvas);
         showLocalCircleCoordinate(canvas);
         showBalls(canvas);
 
@@ -584,6 +586,21 @@ public class MainView extends View {
 
         Point minPt = m_lightData.getMinPtInScreen(displayMetrics);
         canvas.drawLine((float) maxPt.x, (float) maxPt.y, (float) minPt.x, (float) minPt.y, m_paint);
+    }
+
+    private void showFlickBoundary(Canvas canvas) {
+        m_paint.setColor(Color.BLUE);
+        m_paint.setStyle(Paint.Style.STROKE);
+
+        int numOfSpan = 360/(int)FLICK_ANGLE_INTERVAL;
+        float pointX;
+        float pointY;
+        for (int i=1; i<=numOfSpan; ++i)
+        {
+            pointX = m_localCoordinateCenterX + m_localCoordinateRadius * (float)Math.cos(Math.toRadians(FLICK_ANGLE_INTERVAL * i));
+            pointY = m_localCoordinateCenterY - m_localCoordinateRadius * (float)Math.sin(Math.toRadians(FLICK_ANGLE_INTERVAL * i));
+            canvas.drawLine(m_localCoordinateCenterX, m_localCoordinateCenterY, pointX, pointY, m_paint);
+        }
     }
 
     private void showLocalCircleCoordinate(Canvas canvas){
@@ -924,22 +941,26 @@ public class MainView extends View {
             }
             //Log.d(MainActivity.TAG, "getFlickAngle endXY = (" + newX + "," + newY + ")");
             double flickAngle = getFlickAngle(m_localCoordinateCenterX, m_localCoordinateCenterY, newX, newY);
+            int flickSpan = (int)Math.floor(flickAngle/FLICK_ANGLE_INTERVAL);
             //Log.d(MainActivity.TAG, "onFlick flickAngle = " + flickAngle );
 
-            // find nearest remote phone
+            // find nearest remote phone in the same span
             boolean isFound = false;
             double maxAngle = 360;
             double target_angle_remote = 0.0;
             for (RemotePhoneInfo phone : m_remotePhones) {
                 double angle_remote = calculateRemoteAngle_Benchmark(phone.m_angleInBenchmark, phone.m_isBenchmark);
-                double deltaAngle = Math.abs(flickAngle - angle_remote);
-                if (deltaAngle > 180) {
-                    deltaAngle = 360 - deltaAngle;
-                }
-                if (deltaAngle < TARGET_MAGNETISM_DEGREE && deltaAngle < maxAngle) {
-                    isFound = true;
-                    maxAngle = deltaAngle;
-                    target_angle_remote = angle_remote;
+                int remoteSpan = (int)Math.floor(angle_remote/FLICK_ANGLE_INTERVAL);
+                if (flickSpan == remoteSpan) {
+                    double deltaAngle = Math.abs(flickAngle - angle_remote);
+                    if (deltaAngle > 180) {
+                        deltaAngle = 360 - deltaAngle;
+                    }
+                    if (deltaAngle < TARGET_MAGNETISM_DEGREE && deltaAngle < maxAngle) {
+                        isFound = true;
+                        maxAngle = deltaAngle;
+                        target_angle_remote = angle_remote;
+                    }
                 }
             }
 
@@ -1332,9 +1353,10 @@ public class MainView extends View {
         }
 
         // reset self phone color
+        /*
         Random rnd = new Random();
         m_color = Color.argb(255, rnd.nextInt(256), rnd.nextInt(256), rnd.nextInt(256));
-
+*/
         resetCounters();
     }
 

@@ -60,7 +60,7 @@ public class LoginActivity extends Activity {
     private TextView m_spinnerTextView;
 
     private static final String[] Modes = {"Auto", "Compass", "Light", "CompassLight"};
-    private String m_mode;
+    private String m_mode = "Compass";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,12 +76,13 @@ public class LoginActivity extends Activity {
         spinner.setOnItemSelectedListener(new SpinnerSelectedListener());
         spinner.setVisibility(View.VISIBLE);
 
+        /*
         Spinner spinnerMode = (Spinner) findViewById(R.id.spinner_mode);
         ArrayAdapter<String> adapterMode = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, Modes);
         adapterMode.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinnerMode.setAdapter(adapterMode);
         spinnerMode.setOnItemSelectedListener(new SpinnerModeSelectedListener());
-        spinnerMode.setVisibility(View.VISIBLE);
+        spinnerMode.setVisibility(View.VISIBLE);*/
 
         Button btnPrev=(Button)this.findViewById(R.id.btn_go);
         btnPrev.setOnClickListener(new View.OnClickListener() {
@@ -97,6 +98,8 @@ public class LoginActivity extends Activity {
                     bundle.putString("id", id);
                     bundle.putInt("color", m_spinnerTextView.getCurrentTextColor());
                     bundle.putString("mode", m_mode);
+                    bundle.putString("lockMode", "Dynamic");
+                    bundle.putString("passMode", "Multiple");
                     intent.putExtras(bundle);
                     LoginActivity.this.startActivity(intent);
                     LoginActivity.this.finish();
