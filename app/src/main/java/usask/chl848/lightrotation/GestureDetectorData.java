@@ -19,6 +19,9 @@ public class GestureDetectorData implements GestureDetector.OnGestureListener {
     @Override
     public boolean onDown(MotionEvent e) {
         //Log.d(MainActivity.TAG, "GestureDetectorData::onDown()");
+        if ( m_view.isFlickEnabled() && m_view.isFlicking()  ) {
+            m_view.stopFlicking();
+        }
         return m_view.isFlickEnabled() && m_view.isFlicking() || m_view.onTouchDown(e);
     }
 

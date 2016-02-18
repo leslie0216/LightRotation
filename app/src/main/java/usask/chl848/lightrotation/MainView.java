@@ -207,8 +207,8 @@ public class MainView extends View {
 
     private void initBallBornPoints(DisplayMetrics displayMetrics) {
         m_ballRadius = displayMetrics.widthPixels * 0.08f;
-        m_ballBornX = displayMetrics.widthPixels * 0.5f;
-        m_ballBornY = displayMetrics.heightPixels * 0.75f - m_ballRadius * 2.0f;
+        m_ballBornX = m_localCoordinateCenterX;//displayMetrics.widthPixels * 0.5f;
+        m_ballBornY = m_localCoordinateCenterY;//displayMetrics.heightPixels * 0.75f - m_ballRadius * 2.0f;
     }
 
     private void setShowRemoteNames(boolean show) {
@@ -247,8 +247,12 @@ public class MainView extends View {
         return m_isFlickEnabled;
     }
 
-    public boolean isFlicking() {
+    public synchronized boolean isFlicking() {
         return m_isFlicking;
+    }
+
+    public synchronized void stopFlicking() {
+        m_isFlicking = false;
     }
 
     /***
@@ -591,6 +595,7 @@ public class MainView extends View {
     private void showFlickBoundary(Canvas canvas) {
         m_paint.setColor(Color.BLUE);
         m_paint.setStyle(Paint.Style.STROKE);
+        m_paint.setStrokeWidth(1);
 
         int numOfSpan = 360/(int)FLICK_ANGLE_INTERVAL;
         float pointX;
@@ -608,6 +613,7 @@ public class MainView extends View {
 
         m_paint.setColor(Color.BLUE);
         m_paint.setStyle(Paint.Style.STROKE);
+        m_paint.setStrokeWidth(m_textStrokeWidth);
 
         // draw coordinate
         float left = 0.0f;
