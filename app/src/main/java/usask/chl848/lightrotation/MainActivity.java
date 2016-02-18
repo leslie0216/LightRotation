@@ -96,7 +96,7 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
             }
             m_bluetoothData.sendMessage();
             m_drawView.invalidate();
-            timerHandler.postDelayed(this, 200);
+            timerHandler.postDelayed(this, 100);
         }
     };
 

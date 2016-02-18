@@ -13,7 +13,7 @@ public class CompassData {
         float m_z;
     }
     private final Queue<RotationVector> m_rotationVectorQueue = new LinkedList<>();
-    private static final int m_filterSize = 15;
+    private static final int m_filterSize = 10;
     private boolean m_isAccurate = true;
 
     public void setRotationData(float[] values) {
@@ -25,11 +25,6 @@ public class CompassData {
         if (rotationVector.m_z < 0) {
             rotationVector.m_z += 360;
         }
-
-        /*
-        if (getContext().getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            rotationVector.m_z += 90;
-        }*/
 
         synchronized (m_rotationVectorQueue) {
             int size = m_rotationVectorQueue.size();

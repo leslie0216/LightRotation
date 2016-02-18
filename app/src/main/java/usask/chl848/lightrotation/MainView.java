@@ -433,10 +433,7 @@ public class MainView extends View {
                 m_angleLogger.write(m_id + "," + m_userName + "," + ((MainActivity) getContext()).getLockMode().toString() + "," + ((MainActivity) getContext()).getPassMode().toString() + "," + m_currentBlock + "," + m_currentTrail + "," + values[0] + "," + values[1] + "," + values[2] + "," + (isAccurate?1:0) + "," + System.currentTimeMillis(), false);
             }
         }
-
-        if (m_isLocked) {
-            invalidate();
-        }
+        invalidate();
         /**
          * experiment end
          */
